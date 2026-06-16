@@ -233,13 +233,29 @@ function toggleEditPill(el, val) {
 }
 
 // ── Photo ──
+function compressImage(dataUrl, cb) {
+  var img = new Image();
+  img.onload = function() {
+    var maxW = 1200;
+    var scale = Math.min(1, maxW / img.width);
+    var w = Math.round(img.width * scale);
+    var h = Math.round(img.height * scale);
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    cb(canvas.toDataURL('image/jpeg', 0.7));
+  };
+  img.src = dataUrl;
+}
 function handleFile(e) {
   var f=e.target.files&&e.target.files[0]; if(!f) return;
   var r=new FileReader();
   r.onload=function(ev){
-    currentBase64=ev.target.result;
-    document.getElementById('preview-img').src=ev.target.result;
-    document.getElementById('preview-wrap').style.display='block';
+    compressImage(ev.target.result, function(compressed) {
+      currentBase64=compressed;
+      document.getElementById('preview-img').src=compressed;
+      document.getElementById('preview-wrap').style.display='block';
+    });
   };
   r.readAsDataURL(f);
 }
