@@ -119,6 +119,7 @@ input:focus, textarea:focus { border-color: #007aff; }
   <div class="field"><label class="flabel">Grouping</label><input type="text" id="grouping-input" placeholder="e.g. Gate 5, Floor Access, Concourse B"></div>
   <div class="field"><label class="flabel">Location</label><input type="text" id="location-input" placeholder="e.g. L1, Section 115A, North entrance"></div>
   <div class="field"><label class="flabel">Arrow direction</label><input type="text" id="arrow-input" placeholder="e.g. Left, right, straight, none"></div>
+  <div class="field"><label class="flabel">Photo ID <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0;">— e.g. IMG_3165</span></label><input type="text" id="photo-id-input" placeholder="Enter filename from your camera roll"></div>
   <div class="field"><label class="flabel">Notes</label><textarea id="notes-input" placeholder="e.g. Needs to move to west wall…"></textarea></div>
   <div class="field">
     <label class="flabel">New copy <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0;">— leave blank, fill in during review</span></label>
@@ -161,6 +162,7 @@ input:focus, textarea:focus { border-color: #007aff; }
   <div class="field"><label class="flabel">Grouping</label><input type="text" id="edit-grouping"></div>
   <div class="field"><label class="flabel">Location</label><input type="text" id="edit-location"></div>
   <div class="field"><label class="flabel">Arrow direction</label><input type="text" id="edit-arrow"></div>
+  <div class="field"><label class="flabel">Photo ID</label><input type="text" id="edit-photo-id" placeholder="e.g. IMG_3165"></div>
   <div class="field"><label class="flabel">Notes</label><textarea id="edit-notes"></textarea></div>
   <div class="field"><label class="flabel">New copy</label><textarea id="edit-new-copy" placeholder="Write approved copy once reviewed…"></textarea></div>
   <hr class="divider">
@@ -306,12 +308,13 @@ function logItem() {
     grouping: document.getElementById('grouping-input').value.trim(),
     location: document.getElementById('location-input').value.trim(),
     arrow:    document.getElementById('arrow-input').value.trim(),
+    photoId:  document.getElementById('photo-id-input').value.trim(),
     notes:    document.getElementById('notes-input').value.trim(),
     newCopy:  document.getElementById('new-copy-input').value.trim()
   };
 
   function saveRow(photoUrl) {
-    var row = [rowData.id, rowData.ts, rowData.type, rowData.grouping, rowData.location, rowData.arrow, rowData.notes, rowData.newCopy, photoUrl||''];
+    var row = [rowData.id, rowData.ts, rowData.type, rowData.grouping, rowData.location, rowData.arrow, rowData.photoId, rowData.notes, rowData.newCopy, photoUrl||''];
     callScript({ action:'append', row:row }, function(err, data) {
       btn.disabled = false;
       btn.textContent = '✓ Log & next sign';
@@ -356,7 +359,7 @@ function resetForm() {
   selectedPills = [];
   var pills = document.querySelectorAll('#issue-pills .pill');
   for (var i=0;i<pills.length;i++) pills[i].className='pill';
-  var fields = ['grouping-input','location-input','arrow-input','notes-input','new-copy-input'];
+  var fields = ['grouping-input','location-input','arrow-input','photo-id-input','notes-input','new-copy-input'];
   for (var j=0;j<fields.length;j++) document.getElementById(fields[j]).value='';
   window.scrollTo(0,0);
 }
@@ -387,9 +390,10 @@ function loadFromSheet() {
         grouping:     r[3]||'',
         location:     r[4]||'',
         arrow:        r[5]||'',
-        notes:        r[6]||'',
-        new_copy:     r[7]||'',
-        photo_url:    r[8]||''
+        photo_id:     r[6]||'',
+        notes:        r[7]||'',
+        new_copy:     r[8]||'',
+        photo_url:    r[9]||''
       });
     }
     var lc = document.getElementById('log-count');
@@ -409,6 +413,7 @@ function openEdit(idx) {
       document.getElementById('edit-grouping').value  = it.grouping;
   document.getElementById('edit-location').value  = it.location;
   document.getElementById('edit-arrow').value     = it.arrow;
+  document.getElementById('edit-photo-id').value  = it.photo_id;
   document.getElementById('edit-notes').value     = it.notes;
   document.getElementById('edit-new-copy').value  = it.new_copy;
   document.getElementById('edit-preview-wrap').style.display = 'none';
@@ -430,6 +435,7 @@ function saveEdit() {
     document.getElementById('edit-grouping').value.trim(),
     document.getElementById('edit-location').value.trim(),
     document.getElementById('edit-arrow').value.trim(),
+    document.getElementById('edit-photo-id').value.trim(),
     document.getElementById('edit-notes').value.trim(),
     document.getElementById('edit-new-copy').value.trim(),
     it.photo_url||''
@@ -497,6 +503,7 @@ function renderLog() {
       if (time) html += '<p style="font-size:12px;color:#aaa;margin-bottom:4px;">'+time+'</p>';
       if (it.location) html += '<p style="font-size:13px;color:#888;margin-bottom:3px;">📍 '+it.location+'</p>';
       if (it.arrow) html += '<p style="font-size:13px;color:#888;margin-bottom:3px;">Arrow: '+it.arrow+'</p>';
+      if (it.photo_id) html += '<p style="font-size:13px;color:#888;margin-bottom:3px;">📷 '+it.photo_id+'</p>';
       if (it.photo_url) html += '<a href="'+it.photo_url+'" target="_blank" style="display:inline-block;font-size:13px;color:#007aff;margin-bottom:3px;">📸 View photo</a>';
       if (it.notes) html += '<p style="font-size:13px;color:#666;font-style:italic;margin-bottom:3px;">'+it.notes+'</p>';
       if (it.new_copy) {
