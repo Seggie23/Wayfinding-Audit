@@ -106,15 +106,6 @@ input:focus, textarea:focus { border-color: #007aff; }
     <button id="btn-new" class="btn" onclick="setMode('new')">＋ New sign</button>
   </div>
 
-  <div id="preview-wrap" class="preview-wrap" style="display:none;">
-    <img id="preview-img" alt="Preview">
-    <button class="remove-btn" onclick="clearPhoto()">✕</button>
-  </div>
-  <label class="photo-label">
-    <span style="font-size:26px;pointer-events:none;">📷</span>
-    <span id="photo-label-text" style="pointer-events:none;">Take or choose photo of sign</span>
-    <input type="file" accept="image/*" id="file-input" onchange="handleFile(event)">
-  </label>
 
   <div class="field"><label class="flabel">Grouping</label><input type="text" id="grouping-input" placeholder="e.g. Gate 5, Floor Access, Concourse B"></div>
   <div class="field"><label class="flabel">Location</label><input type="text" id="location-input" placeholder="e.g. L1, Section 115A, North entrance"></div>
@@ -150,15 +141,6 @@ input:focus, textarea:focus { border-color: #007aff; }
     <button class="back-btn" onclick="cancelEdit()">← Back</button>
     <h1 style="flex:1;">Edit entry</h1>
   </div>
-  <div id="edit-preview-wrap" class="preview-wrap" style="display:none;">
-    <img id="edit-preview-img" alt="Preview">
-    <button class="remove-btn" onclick="clearEditPhoto()">✕</button>
-  </div>
-  <label class="photo-label">
-    <span style="font-size:26px;pointer-events:none;">📷</span>
-    <span style="pointer-events:none;">Replace photo</span>
-    <input type="file" accept="image/*" id="edit-file-input" onchange="handleEditFile(event)">
-  </label>
   <div class="field"><label class="flabel">Grouping</label><input type="text" id="edit-grouping"></div>
   <div class="field"><label class="flabel">Location</label><input type="text" id="edit-location"></div>
   <div class="field"><label class="flabel">Arrow direction</label><input type="text" id="edit-arrow"></div>
@@ -181,10 +163,8 @@ input:focus, textarea:focus { border-color: #007aff; }
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyH402lSya9tqecFV6uKPMRVqVj5TEQ2GUQyu__cRJ8b2xgREEgE5f981ZFRGCrm-VW/exec';
 
 var currentMode = 'fix';
-var currentBase64 = null;
 var issueLog = [];
 var editIndex = -1;
-var editBase64 = null;
 var toastTimer = null;
 
 // ── Toast ──
@@ -301,64 +281,36 @@ function logItem() {
   btn.textContent = 'Saving…';
   toast('wait', '⏳ Saving to Google Sheets…', 30000);
 
-  var rowData = {
-    id:       'S'+Date.now(),
-    ts:       new Date().toISOString(),
-    type:     currentMode==='new'?'New sign needed':'Fix existing',
-    grouping: document.getElementById('grouping-input').value.trim(),
-    location: document.getElementById('location-input').value.trim(),
-    arrow:    document.getElementById('arrow-input').value.trim(),
-    photoId:  document.getElementById('photo-id-input').value.trim(),
-    notes:    document.getElementById('notes-input').value.trim(),
-    newCopy:  document.getElementById('new-copy-input').value.trim()
-  };
+  var row = [
+    'S'+Date.now(),
+    new Date().toISOString(),
+    currentMode==='new'?'New sign needed':'Fix existing',
+    document.getElementById('grouping-input').value.trim(),
+    document.getElementById('location-input').value.trim(),
+    document.getElementById('arrow-input').value.trim(),
+    document.getElementById('photo-id-input').value.trim(),
+    document.getElementById('notes-input').value.trim(),
+    document.getElementById('new-copy-input').value.trim(),
+    ''
+  ];
 
-  function saveRow(photoUrl) {
-    var row = [rowData.id, rowData.ts, rowData.type, rowData.grouping, rowData.location, rowData.arrow, rowData.photoId, rowData.notes, rowData.newCopy, photoUrl||''];
-    callScript({ action:'append', row:row }, function(err, data) {
-      btn.disabled = false;
-      btn.textContent = '✓ Log & next sign';
-      if (!err && data && data.status==='ok') {
-        toast('ok', '✓ Saved to Google Sheets!');
-        var lc = document.getElementById('log-count');
-        var n = parseInt(lc.dataset.count||'0') + 1;
-        lc.dataset.count = n;
-        lc.textContent = n + ' item' + (n!==1?'s':'') + ' logged';
-        resetForm();
-      } else {
-        toast('err', '✗ Save failed — check connection', 5000);
-      }
-    });
-  }
-
-  // If there's a photo, upload it first
-  if (currentBase64) {
-    toast('wait', '⏳ Uploading photo…', 30000);
-    var parts = currentBase64.split(',');
-    var mimeType = parts[0].match(/:(.*?);/)[1];
-    var imageData = parts[1];
-    var sizeKB = Math.round(imageData.length * 0.75 / 1024);
-    console.log('Photo size KB:', sizeKB);
-    toast('wait', '⏳ Uploading photo (' + sizeKB + 'KB)…', 30000);
-    var fileName = 'photo-' + rowData.id + '.jpg';
-    callScript({ action:'uploadPhoto', imageData:imageData, mimeType:mimeType, fileName:fileName }, function(err, data) {
-      if (!err && data && data.status==='ok') {
-        saveRow(data.photoUrl);
-      } else {
-        // Photo upload failed — save row without photo
-        saveRow('');
-      }
-    });
-  } else {
-    saveRow('');
-  }
+  callScript({ action:'append', row:row }, function(err, data) {
+    btn.disabled = false;
+    btn.textContent = '✓ Log & next sign';
+    if (!err && data && data.status==='ok') {
+      toast('ok', '✓ Saved to Google Sheets!');
+      var lc = document.getElementById('log-count');
+      var n = parseInt(lc.dataset.count||'0') + 1;
+      lc.dataset.count = n;
+      lc.textContent = n + ' item' + (n!==1?'s':'') + ' logged';
+      resetForm();
+    } else {
+      toast('err', '✗ Save failed — check connection', 5000);
+    }
+  });
 }
 
 function resetForm() {
-  clearPhoto();
-  selectedPills = [];
-  var pills = document.querySelectorAll('#issue-pills .pill');
-  for (var i=0;i<pills.length;i++) pills[i].className='pill';
   var fields = ['grouping-input','location-input','arrow-input','photo-id-input','notes-input','new-copy-input'];
   for (var j=0;j<fields.length;j++) document.getElementById(fields[j]).value='';
   window.scrollTo(0,0);
