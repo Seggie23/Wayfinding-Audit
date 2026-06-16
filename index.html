@@ -236,14 +236,14 @@ function toggleEditPill(el, val) {
 function compressImage(dataUrl, cb) {
   var img = new Image();
   img.onload = function() {
-    var maxW = 1200;
+    var maxW = 800;
     var scale = Math.min(1, maxW / img.width);
     var w = Math.round(img.width * scale);
     var h = Math.round(img.height * scale);
     var canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    cb(canvas.toDataURL('image/jpeg', 0.7));
+    cb(canvas.toDataURL('image/jpeg', 0.5));
   };
   img.src = dataUrl;
 }
@@ -334,6 +334,9 @@ function logItem() {
     var parts = currentBase64.split(',');
     var mimeType = parts[0].match(/:(.*?);/)[1];
     var imageData = parts[1];
+    var sizeKB = Math.round(imageData.length * 0.75 / 1024);
+    console.log('Photo size KB:', sizeKB);
+    toast('wait', '⏳ Uploading photo (' + sizeKB + 'KB)…', 30000);
     var fileName = 'photo-' + rowData.id + '.jpg';
     callScript({ action:'uploadPhoto', imageData:imageData, mimeType:mimeType, fileName:fileName }, function(err, data) {
       if (!err && data && data.status==='ok') {
