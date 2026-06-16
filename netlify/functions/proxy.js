@@ -2,47 +2,22 @@ const https = require('https');
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyH402lSya9tqecFV6uKPMRVqVj5TEQ2GUQyu__cRJ8b2xgREEgE5f981ZFRGCrm-VW/exec';
 
-function httpsGet(url) {
+function followRedirects(url, options, postData, depth) {
+  if (depth > 5) return Promise.reject(new Error('Too many redirects'));
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let raw = '';
-      res.on('data', chunk => raw += chunk);
-      res.on('end', () => {
-        if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
-          httpsGet(res.headers.location).then(resolve).catch(reject);
-        } else {
-          resolve(raw);
-        }
-      });
-    }).on('error', reject);
-  });
-}
-
-function httpsPost(url, postData) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const options = {
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
+    const req = https.request(url, options, (res) => {
+      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
+        // For redirects, switch to GET
+        const newOptions = { method: 'GET' };
+        followRedirects(res.headers.location, newOptions, null, depth + 1).then(resolve).catch(reject);
+        return;
       }
-    };
-    const req = https.request(options, (res) => {
       let raw = '';
       res.on('data', chunk => raw += chunk);
-      res.on('end', () => {
-        if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
-          httpsPost(res.headers.location, postData).then(resolve).catch(reject);
-        } else {
-          resolve(raw);
-        }
-      });
+      res.on('end', () => resolve(raw));
     });
     req.on('error', reject);
-    req.write(postData);
+    if (postData) req.write(postData);
     req.end();
   });
 }
@@ -50,17 +25,33 @@ function httpsPost(url, postData) {
 exports.handler = async function(event) {
   try {
     const body = JSON.parse(event.body || '{}');
+    console.log('Action:', body.action);
+    console.log('Body size:', event.body ? event.body.length : 0);
 
     let data;
+
     if (body.action === 'uploadPhoto') {
-      // Send large photo data via POST
-      const postData = JSON.stringify(body);
-      data = await httpsPost(SCRIPT_URL, postData);
+      console.log('Image data length:', body.imageData ? body.imageData.length : 0);
+      const postData = event.body; // forward raw body
+      const urlObj = new URL(SCRIPT_URL);
+      const options = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname + urlObj.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      };
+      data = await followRedirects(SCRIPT_URL, options, postData, 0);
     } else {
-      // Small payloads via GET
       const params = new URLSearchParams({ payload: JSON.stringify(body) }).toString();
-      data = await httpsGet(SCRIPT_URL + '?' + params);
+      const urlObj = new URL(SCRIPT_URL + '?' + params);
+      const options = { hostname: urlObj.hostname, path: urlObj.pathname + urlObj.search, method: 'GET' };
+      data = await followRedirects(SCRIPT_URL + '?' + params, options, null, 0);
     }
+
+    console.log('Response:', data ? data.substring(0, 200) : 'empty');
 
     return {
       statusCode: 200,
@@ -68,9 +59,10 @@ exports.handler = async function(event) {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: data
+      body: data || JSON.stringify({ status: 'error', message: 'Empty response from script' })
     };
   } catch (err) {
+    console.error('Error:', err.message);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
